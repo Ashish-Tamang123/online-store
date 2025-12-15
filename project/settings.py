@@ -13,8 +13,13 @@ SECRET_KEY = "django-insecure-_y8gyn%%pf8l!m##%%hl88qve(bp_7@t=e*10fx9_6u9yx2^=6
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["d6c18ba958c5.ngrok-free.app", "*"]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://d6c18ba958c5.ngrok-free.app",
+    "https://*.ngrok-free.app",
+    "https://*.ngrok.io",
+]
 
 # Application definition
 
@@ -26,6 +31,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "accounts",
+    "store",
 ]
 
 MIDDLEWARE = [
@@ -105,3 +111,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+
+
+MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = "/media/"
