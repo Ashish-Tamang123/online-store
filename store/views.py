@@ -1,7 +1,10 @@
-from django.shortcuts import render
-from .models import Product
+from django.shortcuts import render, get_object_or_404, redirect
+from .models import Product, Cart, CartProduct
 from django.core.paginator import Paginator
 from .forms import ProductFilterForm
+from django.urls import reverse, reverse_lazy
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 
 def home(request):
     featured_products = Product.objects.filter(featured=True).order_by('-created_at')[:8]
@@ -47,3 +50,45 @@ def products(request):
         'filter_form': filter_form,
     }
     return render(request, "store/products.html", context)
+
+
+def product_detail(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    context = {
+        'product': product
+    }
+    return render(request, 'store/product_detail.html', context)
+
+@login_required(login_url=reverse_lazy('accounts:login_page'))
+def add_to_cart(request, pk):
+    if request.method != "POST":
+        return redirect('store:product_detail_page', pk=pk)
+
+    product = get_object_or_404(Product, pk=pk)
+    cart, _ = Cart.objects.get_or_create(user=request.user)
+
+    quantity = request.POST.get('quantity')
+    if not quantity or not quantity.isdigit():
+        messages.error(request, "Quantity must be at least 1")
+        return redirect('store:product_detail_page', pk=pk)
+
+    quantity = int(quantity)
+
+    cart_product, created = CartProduct.objects.get_or_create(
+        product=product,
+        cart=cart,
+        defaults={'quantity': quantity}
+    )
+
+    if not created:
+        cart_product.quantity += quantity
+        cart_product.save()
+        messages.success(request, "Cart updated successfully")
+    else:
+        messages.success(request, "Product added to cart successfully")
+
+    return redirect('store:product_detail_page', pk=pk)
+
+        
+
+
