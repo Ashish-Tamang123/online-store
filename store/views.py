@@ -5,6 +5,8 @@ from .forms import ProductFilterForm
 from django.urls import reverse, reverse_lazy
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import F, Sum, ExpressionWrapper, DecimalField
+
 
 def home(request):
     featured_products = Product.objects.filter(featured=True).order_by('-created_at')[:8]
@@ -59,35 +61,96 @@ def product_detail(request, pk):
     }
     return render(request, 'store/product_detail.html', context)
 
-@login_required(login_url=reverse_lazy('accounts:login_page'))
+@login_required(login_url=reverse_lazy("accounts:login_page"))
 def add_to_cart(request, pk):
-    if request.method != "POST":
-        return redirect('store:product_detail_page', pk=pk)
+    try:
+        product = get_object_or_404(Product, pk=pk)
+        logged_in_user = request.user
+        cart, created = Cart.objects.get_or_create(user=logged_in_user)
 
-    product = get_object_or_404(Product, pk=pk)
-    cart, _ = Cart.objects.get_or_create(user=request.user)
+        if CartProduct.objects.filter(product=product, cart=cart).exists():
+            messages.success(request, "Product already in your cart")
+            return redirect("store:product_detail_page", pk=pk)
 
-    quantity = request.POST.get('quantity')
-    if not quantity or not quantity.isdigit():
-        messages.error(request, "Quantity must be at least 1")
-        return redirect('store:product_detail_page', pk=pk)
+        quantity = int(request.POST.get("quantity"))
+        if quantity < 0:
+            messages.error(request, "Quantify cannot be zero")
+            return redirect("store:product_detail_page", pk=pk)
 
-    quantity = int(quantity)
-
-    cart_product, created = CartProduct.objects.get_or_create(
-        product=product,
-        cart=cart,
-        defaults={'quantity': quantity}
-    )
-
-    if not created:
-        cart_product.quantity += quantity
-        cart_product.save()
-        messages.success(request, "Cart updated successfully")
-    else:
+        CartProduct.objects.create(product=product, cart=cart, quantity=quantity)
         messages.success(request, "Product added to cart successfully")
+    except Exception as e:
+        print(e)
+        messages.error(request, "Adding product to cart failed")
 
-    return redirect('store:product_detail_page', pk=pk)
+    return redirect("store:product_detail_page", pk=pk)
+
+
+@login_required(login_url=reverse_lazy("accounts:login_page"))
+def remove_from_cart(request, pk):
+    try:
+        cart_item = CartProduct.objects.get(pk=pk)
+    except CartProduct.DoesNotExist:
+        messages.error(request, "Cart item doesn't exists")
+    except Exception as e:
+        messages.error(request, "Removing item from cart failed")
+    else:
+        cart_item.delete()
+        messages.success(request, "Cart item removed successful")
+    return redirect('store:cart_page')
+
+
+@login_required(login_url=reverse_lazy("accounts:login_page"))
+def update_cart(request, pk):
+    try:
+        cart_item = CartProduct.objects.get(pk=pk)
+    except CartProduct.DoesNotExist:
+        messages.error(request, "Cart item doesn't exists")
+    except Exception as e:
+        messages.error(request, "Updating item from cart failed")
+    else:
+        try:        
+            updated_quantity = int(request.POST.get("quantity"))
+        except ValueError:
+            messages.error(request, "Quantity must be a number")
+        else:
+            if updated_quantity < 0:
+                messages.error(request, "Quantity can't be less than 1")
+
+            cart_item.quantity = updated_quantity
+            cart_item.save()
+            messages.success(request, "Cart item updated successful")
+
+    return redirect('store:cart_page')
+    
+
+
+@login_required(login_url=reverse_lazy("accounts:login_page"))
+def cart(request):
+    try:
+        user_cart = request.user.cart
+        if cart is not None:
+            # cart_products = CartProduct.objects.filter(cart=user_cart)
+            # cart_total = 0
+            # for cart_item in cart_products:
+            #     cart_total += cart_item.get_total_price
+            cart_products = CartProduct.objects.filter(cart=user_cart).annotate(
+                subtotal=ExpressionWrapper(
+                    F('quantity') * F('product__price'),
+                    output_field=DecimalField(max_digits=10, decimal_places=2)
+                )
+            )
+            cart_total = cart_products.aggregate(total=Sum('subtotal'))['total'] or 0
+
+    except Exception:
+        messages.error(request, 'Something went wrong, please try again later')
+        return redirect('store:home_page')
+    
+    context = {
+        'products': cart_products,
+        'cart_total': cart_total
+    }
+    return render(request, 'store/cart.html', context)
 
         
 
