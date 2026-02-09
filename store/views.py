@@ -1,11 +1,13 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Product, Cart, CartProduct
+from .models import Product, Cart, CartProduct, Order, OrderItem
 from django.core.paginator import Paginator
 from .forms import ProductFilterForm
 from django.urls import reverse, reverse_lazy
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import F, Sum, ExpressionWrapper, DecimalField
+from .utils import generate_order_id
+from django.db import transaction, IntegrityError
 
 
 def home(request):
@@ -153,5 +155,71 @@ def cart(request):
     return render(request, 'store/cart.html', context)
 
         
+@login_required(login_url=reverse_lazy("accounts:login_page"))
+def place_order(request):
+    user_cart = request.user.cart
 
+    cart_products = CartProduct.objects.filter(cart=user_cart).annotate(
+                subtotal=ExpressionWrapper(
+                    F('quantity') * F('product__price'),
+                    output_field=DecimalField(max_digits=10, decimal_places=2)
+                )
+            )
+    
+    
+    cart_sub_total = cart_products.aggregate(total=Sum('subtotal'))['total'] or 0
 
+    try:
+        order_id = generate_order_id(request.user.id)
+        with transaction.atomic():
+            # create new order    
+            new_order = Order.objects.create(
+                user=request.user,
+                order_id=order_id,
+                subtotal = cart_sub_total
+            )
+
+            # create order items for newly creted order
+            for cart_item in cart_products:
+                OrderItem.objects.create(
+                    order = new_order,
+                    product = cart_item.product,
+                    product_name = cart_item.product.name,
+                    price = cart_item.product.price,
+                    quantity = cart_item.quantity,
+                )
+
+            # remove orders from cart
+            for cart_item in cart_products:
+                cart_item.delete()
+    
+    except IntegrityError:
+        messages.error(request, "Failed to create an order")
+        return redirect ("store:cart_page")
+    except Exception as e:
+        print("Unexpected behaviour: ", str(e))
+        return redirect ("store:cart_page")
+    else:
+        messages.success(request, "Order placed successful")
+        return redirect ("store:order_page")
+    
+
+@login_required(login_url=reverse_lazy("accounts:login_page"))
+def cancel_order(request, pk):
+    try:
+        order_to_delete = Order.objects.get(pk=pk)
+    except Order.DoesNotExist:
+        messages.error(request, "Failed to cancel the order")
+    else:    
+        order_to_delete.delete()
+        messages.success(request, "Order cancel successful")
+
+    return redirect("store:order_page")
+
+@login_required(login_url=reverse_lazy("accounts:login_page"))
+def order(request):
+    orders = Order.objects.filter(user=request.user)
+    context = {
+        "orders": orders,
+    }
+    return render(request, "store/order.html", context)
