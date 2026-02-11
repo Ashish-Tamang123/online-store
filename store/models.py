@@ -83,5 +83,39 @@ class OrderItem(models.Model):
         return f"{self.product_name} x {self.quantity}"
     
 
+class Payment(models.Model):
+    class Method(models.TextChoices):
+        COD = "cod", "Cash on Delivery"
+        ESEWA = "esewa", "eSewa"
+        KHALTI = "khalti", "Khalti"
+
+    class Status(models.TextChoices):
+        INITIATED = "initiated", "Initiated"
+        PENDING = "pending", "Pending"
+        SUCCESS = "success", "Success"
+        FAILED = "failed", "Failed"
+        REFUNDED = "refunded", "Refunded"
+
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="payment",)
+
+    method = models.CharField(max_length=20, choices=Method.choices, default=Method.KHALTI)
+
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.INITIATED)
+
+    purchase_order_id = models.CharField(max_length=100, unique=True)
+
+    # Khalti
+    transaction_id = models.CharField(max_length=100, unique=True)
+    pidx = models.CharField(max_length=100, unique=True)
+    
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    paid_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.order.order_id} - {self.status}"
+    
+
 
     
