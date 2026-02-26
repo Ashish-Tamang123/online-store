@@ -333,7 +333,7 @@ def khalti_payment_response(request):
     }
 
     try:
-        response = request.post(
+        response = requests.post(
             "https://dev.khalti.com/api/v2/epayment/lookup/",
             json={"pidx": pidx},
             headers=headers,

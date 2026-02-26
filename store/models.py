@@ -48,7 +48,7 @@ class Order(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         PAID = "paid", "Paid"
-        SHIPPED = "shipped", "Shipped"
+        ON_THE_WAY = "on the way", "On the way"
         DELIVERED = "delivered", "Delivered"
         CANCELLED = "cancelled", "Cancelled"
          
@@ -64,6 +64,9 @@ class Order(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    # delivery_person
+    delivery_person = models.ForeignKey("accounts.DeliveryPerson", on_delete=models.PROTECT, null=True, blank=True)
 
     def __str__(self):
         return f"Order {self.order_id} ({self.user.email})"
