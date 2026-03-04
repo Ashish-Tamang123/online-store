@@ -1,7 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Product, Cart, CartProduct, Order, OrderItem, Payment
+from .models import Product, Cart, CartProduct, Order, OrderItem, Payment, Review
 from django.core.paginator import Paginator
-from .forms import ProductFilterForm
+from .forms import ProductFilterForm, ReviewForm
 from django.urls import reverse, reverse_lazy
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -381,4 +381,38 @@ def khalti_payment_response(request):
     messages.success(request, "Payment successful. Your order has been confirmed.")
     return redirect("store:order_page")
 
+
+@login_required(login_url=reverse_lazy("accounts:login_page"))
+def review(request, order_item_id):
+    order_item = get_object_or_404(OrderItem, pk=order_item_id)
+
+    review_instance = Review.objects.filter(
+        user=request.user,
+        product=order_item.product,
+    ).first()
+
+    if request.method == "POST":
+        form = ReviewForm(
+            request.POST,
+            instance=review_instance,
+            user=request.user,
+            product=order_item.product,
+        )
+
+        if form.is_valid():
+            form.save()
+            return redirect("store:order_page")
+
+        messages.error(request, "Please correct the errors below.")
+    else:
+        form = ReviewForm(instance=review_instance)
+
+    return render(
+        request,
+        "store/review.html",
+        {
+            "order_item": order_item,
+            "form": form,
+        },
+    )
 

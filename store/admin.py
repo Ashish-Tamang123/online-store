@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, Category, Cart, Order, Payment
+from .models import Product, Category, Cart, Order, Payment, Review
 from store.forms import OrderChangeForm
 
 admin.site.register(Product)
@@ -7,6 +7,7 @@ admin.site.register(Category)
 admin.site.register(Cart)
 # admin.site.register(Order)
 admin.site.register(Payment)
+admin.site.register(Review)
 
 
 @admin.register(Order)

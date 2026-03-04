@@ -1,5 +1,5 @@
 from django import forms
-from .models import Category, Order
+from .models import Category, Order, Review
 from accounts.models import DeliveryPerson
 
 
@@ -63,6 +63,36 @@ class OrderChangeForm(forms.ModelForm):
         if self.cleaned_data["delivery_person"]:
             self.instance.status = Order.Status.ON_THE_WAY
         return super().save(commit)
+    
+class ReviewForm(forms.ModelForm):
+    class Meta:
+        model = Review
+        fields = ["text", "rating"]
+        widgets = {
+            "text": forms.Textarea(attrs={
+                "class": "form-control",
+                "placeholder": "Write your review here"
+            }),
+            "rating": forms.HiddenInput(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop("user", None)
+        self.product = kwargs.pop("product", None)
+        super().__init__(*args, **kwargs)
+
+    def save(self, commit=True):
+        review = super().save(commit=False)
+
+        if self.user:
+            review.user = self.user
+        if self.product:
+            review.product = self.product
+
+        if commit:
+            review.save()
+
+        return review
 
 
 

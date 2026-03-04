@@ -137,7 +137,9 @@
                 <th>Price</th>
                 <th>Quantity</th>
                 <th>Subtotal</th>
-                <th></th>
+                {% if request.user.role == "customer" %}
+                <th>Actions</th>
+                {% endif %}
             </tr>
         </thead>
         <tbody>
@@ -154,6 +156,12 @@
                     {{ item.quantity }}
                 </td>
                 <td>Rs. {{ item.get_total_price }}</td>
+                {% if request.user.role == "customer" %}
+                <td>
+                    <a href="{% url 'store:review' item.id %}" class="btn btn-success btn-sm">Review</a>
+                </td>
+
+                {% endif %}
             </tr>
             {% endfor %}
         </tbody>
